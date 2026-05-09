@@ -1,0 +1,28 @@
+[project]
+name = "voronoi-life"
+version = "0.1.0"
+description = "Experimental cellular automata on Voronoi tessellations."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "imageio>=2.37.0",
+    "matplotlib>=3.10.0",
+    "numpy>=2.2.0",
+    "scipy>=1.15.0",
+]
+
+[project.scripts]
+voronoi-life = "voronoi_life.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
