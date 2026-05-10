@@ -63,6 +63,24 @@ uv run voronoi-life run --points density-gradient
 uv run voronoi-life run --periodic
 ```
 
+### 連続量CAを使う
+
+`continuous` ルールでは、生死の二値ではなく、各セルに `life amount` という量を持たせます。表示では、セル面積で割った密度を白黒の濃淡として描きます。
+
+```bash
+uv run voronoi-life run --rule continuous --periodic --cells 500 --steps 100 --coupling edge --reaction none
+uv run voronoi-life run --rule continuous --periodic --cells 500 --steps 100 --coupling edge_distance --diffusion-rate 0.001
+uv run voronoi-life run --rule continuous --periodic --cells 500 --steps 100 --reaction bell --density-scale fixed --rho-max 1.0
+```
+
+主な指定項目です。
+
+- `--continuous-init`: 初期密度の作り方。`random_density`、`binary_density`、`gaussian_blob`
+- `--coupling`: 隣接セル間の混ざり方。`graph`、`edge`、`edge_distance`
+- `--reaction`: 局所反応。`none`、`logistic`、`bell`
+- `--rho-max`: 密度の上限。保存量を見たい場合は `--rho-max none`
+- `--density-scale`: 表示の濃淡範囲。`auto` または `fixed`
+
 ### 表示を切り替える
 
 `--overlay` で、通常表示以外の観察用表示に切り替えられます。
@@ -71,11 +89,15 @@ uv run voronoi-life run --periodic
 uv run voronoi-life run --overlay degree
 uv run voronoi-life run --overlay alive-count
 uv run voronoi-life run --overlay alive-density
+uv run voronoi-life run --overlay area
+uv run voronoi-life run --overlay edge-length
 ```
 
 - `degree`: 各セルの近傍数
 - `alive-count`: 生きている近傍セルの数
 - `alive-density`: 近傍セルのうち、生きているセルの割合
+- `area`: 各セルの面積
+- `edge-length`: 共有境界長の合計
 
 ## テスト
 

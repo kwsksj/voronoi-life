@@ -13,13 +13,31 @@ class VoronoiSpace:
     adjacency: tuple[frozenset[int], ...]
     cell_polygons: tuple[tuple[np.ndarray, ...], ...]
     periodic: bool
+    cell_areas: np.ndarray
+    edge_pairs: tuple[tuple[int, int], ...] = ()
+    edge_lengths: np.ndarray | None = None
+    center_distances: np.ndarray | None = None
 
     @property
     def degrees(self) -> np.ndarray:
         return np.array([len(neighbors) for neighbors in self.adjacency], dtype=int)
 
+    @property
+    def edge_length_sums(self) -> np.ndarray:
+        if self.edge_lengths is None:
+            raise ValueError("edge length metrics are not available")
+        sums = np.zeros(len(self.points), dtype=float)
+        for (left, right), length in zip(self.edge_pairs, self.edge_lengths, strict=True):
+            sums[left] += length
+            sums[right] += length
+        return sums
 
-def build_space(points: np.ndarray, periodic: bool = False) -> VoronoiSpace:
+
+def build_space(
+    points: np.ndarray,
+    periodic: bool = False,
+    include_edge_metrics: bool = False,
+) -> VoronoiSpace:
     points = np.asarray(points, dtype=float)
     if points.ndim != 2 or points.shape[1] != 2:
         raise ValueError("points must have shape (n, 2)")
@@ -33,11 +51,29 @@ def build_space(points: np.ndarray, periodic: bool = False) -> VoronoiSpace:
         adjacency = _open_adjacency(points)
         polygons = _open_polygons(points)
 
+    edge_pairs: tuple[tuple[int, int], ...] = ()
+    edge_lengths: np.ndarray | None = None
+    center_distances: np.ndarray | None = None
+    if include_edge_metrics:
+        edge_lengths_by_pair = (
+            _periodic_edge_lengths(points) if periodic else _open_edge_lengths(points)
+        )
+        edge_pairs, edge_lengths, center_distances = _edge_metrics_from_adjacency(
+            points,
+            adjacency,
+            edge_lengths_by_pair,
+            periodic=periodic,
+        )
+
     return VoronoiSpace(
         points=points,
         adjacency=tuple(frozenset(neighbors) for neighbors in adjacency),
         cell_polygons=tuple(tuple(piece for piece in pieces) for pieces in polygons),
         periodic=periodic,
+        cell_areas=_cell_areas(polygons),
+        edge_pairs=edge_pairs,
+        edge_lengths=edge_lengths,
+        center_distances=center_distances,
     )
 
 
@@ -92,6 +128,132 @@ def _periodic_polygons(points: np.ndarray) -> list[list[np.ndarray]]:
         if polygon_area(clipped) > 1e-10:
             polygons[int(base_indices[tiled_index])].append(clipped)
     return polygons
+
+
+def _cell_areas(polygons: list[list[np.ndarray]]) -> np.ndarray:
+    return np.asarray(
+        [sum(polygon_area(piece) for piece in pieces) for pieces in polygons],
+        dtype=float,
+    )
+
+
+def _open_edge_lengths(points: np.ndarray) -> dict[tuple[int, int], float]:
+    voronoi = Voronoi(points)
+    return _ridge_edge_lengths(voronoi, np.arange(len(points), dtype=int))
+
+
+def _periodic_edge_lengths(points: np.ndarray) -> dict[tuple[int, int], float]:
+    tiled_points, base_indices, _shifts = tile_points(points)
+    voronoi = Voronoi(tiled_points)
+    return _ridge_edge_lengths(voronoi, base_indices)
+
+
+def _ridge_edge_lengths(
+    voronoi: Voronoi,
+    base_indices: np.ndarray,
+    central: np.ndarray | None = None,
+) -> dict[tuple[int, int], float]:
+    radius = float(np.ptp(voronoi.points, axis=0).max() * 2)
+    center = voronoi.points.mean(axis=0)
+    lengths: dict[tuple[int, int], float] = {}
+
+    for (point_a, point_b), (vertex_a, vertex_b) in zip(
+        voronoi.ridge_points,
+        voronoi.ridge_vertices,
+        strict=True,
+    ):
+        if central is not None and not (central[point_a] or central[point_b]):
+            continue
+
+        base_a = int(base_indices[point_a])
+        base_b = int(base_indices[point_b])
+        if base_a == base_b:
+            continue
+
+        segment = _ridge_segment(
+            voronoi,
+            int(point_a),
+            int(point_b),
+            int(vertex_a),
+            int(vertex_b),
+            center=center,
+            radius=radius,
+        )
+        if segment is None:
+            continue
+
+        clipped = clip_segment(segment[0], segment[1])
+        if clipped is None:
+            continue
+
+        length = float(np.linalg.norm(clipped[1] - clipped[0]))
+        if length <= 1e-12:
+            continue
+
+        key = tuple(sorted((base_a, base_b)))
+        lengths[key] = lengths.get(key, 0.0) + length
+
+    return lengths
+
+
+def _ridge_segment(
+    voronoi: Voronoi,
+    point_a: int,
+    point_b: int,
+    vertex_a: int,
+    vertex_b: int,
+    center: np.ndarray,
+    radius: float,
+) -> tuple[np.ndarray, np.ndarray] | None:
+    if vertex_a >= 0 and vertex_b >= 0:
+        return voronoi.vertices[vertex_a], voronoi.vertices[vertex_b]
+    if vertex_a < 0 and vertex_b < 0:
+        return None
+
+    if vertex_b < 0:
+        vertex_a, vertex_b = vertex_b, vertex_a
+
+    tangent = voronoi.points[point_b] - voronoi.points[point_a]
+    norm = float(np.linalg.norm(tangent))
+    if norm <= 1e-12:
+        return None
+    tangent /= norm
+    normal = np.array([-tangent[1], tangent[0]])
+    midpoint = voronoi.points[[point_a, point_b]].mean(axis=0)
+    direction = np.sign(np.dot(midpoint - center, normal)) * normal
+    if np.allclose(direction, 0.0):
+        direction = normal
+    finite = voronoi.vertices[vertex_b]
+    return finite, finite + direction * radius
+
+
+def _edge_metrics_from_adjacency(
+    points: np.ndarray,
+    adjacency: list[set[int]],
+    edge_lengths_by_pair: dict[tuple[int, int], float],
+    periodic: bool,
+) -> tuple[tuple[tuple[int, int], ...], np.ndarray, np.ndarray]:
+    pairs: list[tuple[int, int]] = []
+    lengths: list[float] = []
+    distances: list[float] = []
+
+    for left, neighbors in enumerate(adjacency):
+        for right in sorted(neighbors):
+            if left >= right:
+                continue
+            pair = (left, right)
+            pairs.append(pair)
+            lengths.append(float(edge_lengths_by_pair.get(pair, 0.0)))
+            distances.append(_center_distance(points[left], points[right], periodic))
+
+    return tuple(pairs), np.asarray(lengths, dtype=float), np.asarray(distances, dtype=float)
+
+
+def _center_distance(left: np.ndarray, right: np.ndarray, periodic: bool) -> float:
+    delta = np.asarray(right, dtype=float) - np.asarray(left, dtype=float)
+    if periodic:
+        delta = delta - np.round(delta)
+    return float(np.linalg.norm(delta))
 
 
 def tile_points(points: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -190,6 +352,41 @@ def clip_polygon(
         if len(clipped) == 0:
             return clipped
     return clipped
+
+
+def clip_segment(
+    a: np.ndarray,
+    b: np.ndarray,
+    min_x: float = 0.0,
+    max_x: float = 1.0,
+    min_y: float = 0.0,
+    max_y: float = 1.0,
+) -> tuple[np.ndarray, np.ndarray] | None:
+    start = np.asarray(a, dtype=float)
+    end = np.asarray(b, dtype=float)
+    delta = end - start
+    lower = 0.0
+    upper = 1.0
+
+    for p, q in (
+        (-delta[0], start[0] - min_x),
+        (delta[0], max_x - start[0]),
+        (-delta[1], start[1] - min_y),
+        (delta[1], max_y - start[1]),
+    ):
+        if np.isclose(p, 0.0):
+            if q < 0.0:
+                return None
+            continue
+        ratio = q / p
+        if p < 0.0:
+            lower = max(lower, ratio)
+        else:
+            upper = min(upper, ratio)
+        if lower > upper:
+            return None
+
+    return start + lower * delta, start + upper * delta
 
 
 def _clip_edge(polygon, inside, intersect) -> np.ndarray:

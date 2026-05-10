@@ -31,4 +31,6 @@ def write_experiment_json(
         "overlay": overlay,
         "outputs": outputs,
     }
+    if config.rule.rule_type == "continuous":
+        payload["continuous_parameters"] = config.rule.continuous_json_dict()
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")

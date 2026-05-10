@@ -37,13 +37,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument(
         "--rule",
-        choices=["absolute", "density", "probabilistic"],
+        choices=["absolute", "density", "probabilistic", "continuous"],
         default="absolute",
     )
     run.add_argument("--periodic", action=argparse.BooleanOptionalAction, default=False)
     run.add_argument(
         "--overlay",
-        choices=["none", "degree", "alive-count", "alive-density"],
+        choices=["none", "degree", "alive-count", "alive-density", "area", "edge-length"],
         default="none",
     )
     run.add_argument("--output", type=Path, default=None)
@@ -62,6 +62,26 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--optimal-density", type=float, default=0.35)
     run.add_argument("--birth-strength", type=float, default=2.5)
     run.add_argument("--death-strength", type=float, default=2.0)
+    run.add_argument(
+        "--continuous-init",
+        choices=["random_density", "binary_density", "gaussian_blob"],
+        default="random_density",
+    )
+    run.add_argument("--initial-density-max", type=float, default=1.0)
+    run.add_argument("--alive-density", type=float, default=1.0)
+    run.add_argument(
+        "--coupling",
+        choices=["graph", "edge", "edge_distance"],
+        default="edge",
+    )
+    run.add_argument("--diffusion-rate", type=float, default=0.01)
+    run.add_argument("--reaction", choices=["none", "logistic", "bell"], default="none")
+    run.add_argument("--growth-rate", type=float, default=0.02)
+    run.add_argument("--death-rate", type=float, default=0.01)
+    run.add_argument("--carrying-capacity", type=float, default=1.0)
+    run.add_argument("--sigma", type=float, default=0.08)
+    run.add_argument("--rho-max", type=parse_optional_float, default=None)
+    run.add_argument("--density-scale", choices=["auto", "fixed"], default="auto")
     return parser
 
 
@@ -70,6 +90,8 @@ def run_command(args: argparse.Namespace) -> int:
         raise SystemExit("--cells must be at least 4")
     if args.steps < 0:
         raise SystemExit("--steps must be non-negative")
+    if args.rule == "continuous" and args.overlay in {"alive-count", "alive-density"}:
+        raise SystemExit("--overlay alive-count/alive-density is only meaningful for binary rules")
 
     rule = RuleConfig(
         rule_type=args.rule,
@@ -83,6 +105,18 @@ def run_command(args: argparse.Namespace) -> int:
         optimal_density=args.optimal_density,
         birth_strength=args.birth_strength,
         death_strength=args.death_strength,
+        continuous_init=args.continuous_init,
+        initial_density_max=args.initial_density_max,
+        alive_density=args.alive_density,
+        coupling=args.coupling,
+        diffusion_rate=args.diffusion_rate,
+        reaction=args.reaction,
+        growth_rate=args.growth_rate,
+        death_rate=args.death_rate,
+        carrying_capacity=args.carrying_capacity,
+        sigma=args.sigma,
+        rho_max=args.rho_max,
+        density_scale=args.density_scale,
     )
     config = SimulationConfig(
         cells=args.cells,
@@ -91,12 +125,17 @@ def run_command(args: argparse.Namespace) -> int:
         point_method=args.points,
         periodic=args.periodic,
         rule=rule,
+        include_edge_metrics=args.overlay == "edge-length",
     )
 
     simulation = VoronoiLife(config)
     states = simulation.run(args.steps, include_initial=True)
     overlay = args.overlay
-    rule_label = args.rule
+    rule_label = (
+        f"{args.rule} {args.coupling}/{args.reaction}"
+        if args.rule == "continuous"
+        else args.rule
+    )
 
     outputs: dict[str, str] = {}
     output_dir = None
@@ -107,16 +146,27 @@ def run_command(args: argparse.Namespace) -> int:
         save_png(
             png_path,
             simulation.space,
-            simulation.alive,
+            simulation.state,
             overlay,
             simulation.step_index,
             rule_label,
+            density_scale=args.density_scale,
+            rho_max=args.rho_max,
         )
         outputs["png"] = str(png_path)
 
         if args.gif:
             gif_path = output_dir / "animation.gif"
-            save_gif(gif_path, simulation.space, states, overlay, rule_label, fps=args.fps)
+            save_gif(
+                gif_path,
+                simulation.space,
+                states,
+                overlay,
+                rule_label,
+                fps=args.fps,
+                density_scale=args.density_scale,
+                rho_max=args.rho_max,
+            )
             outputs["gif"] = str(gif_path)
 
         json_path = output_dir / "experiment.json"
@@ -127,7 +177,7 @@ def run_command(args: argparse.Namespace) -> int:
 
     show = sys.stdout.isatty() if args.show is None else args.show
     if show:
-        run_interactive(simulation, overlay, output_dir)
+        run_interactive(simulation, overlay, output_dir, args.density_scale, args.rho_max)
 
     return 0
 
@@ -137,6 +187,15 @@ def parse_counts(raw: str) -> tuple[int, ...]:
         return tuple(int(part.strip()) for part in raw.split(",") if part.strip())
     except ValueError as exc:
         raise argparse.ArgumentTypeError("counts must be comma-separated integers") from exc
+
+
+def parse_optional_float(raw: str) -> float | None:
+    if raw.lower() in {"none", "off", "unlimited"}:
+        return None
+    try:
+        return float(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("value must be a number or none") from exc
 
 
 def print_summary(
@@ -157,6 +216,8 @@ def run_interactive(
     simulation: VoronoiLife,
     overlay: Overlay,
     output_dir: Path | None,
+    density_scale: str = "auto",
+    rho_max: float | None = None,
 ) -> None:
     fig, ax = plt.subplots(figsize=(7, 7))
     running = {"value": False}
@@ -165,11 +226,13 @@ def run_interactive(
         draw_state(
             ax,
             simulation.space,
-            simulation.alive,
+            simulation.state,
             overlay,
             simulation.step_index,
             simulation.config.rule.rule_type,
             add_colorbar=False,
+            density_scale=density_scale,
+            rho_max=rho_max,
         )
         fig.canvas.draw_idle()
 
@@ -186,10 +249,12 @@ def run_interactive(
         save_png(
             path,
             simulation.space,
-            simulation.alive,
+            simulation.state,
             overlay,
             simulation.step_index,
             simulation.config.rule.rule_type,
+            density_scale=density_scale,
+            rho_max=rho_max,
         )
         print(f"saved: {path}")
 
