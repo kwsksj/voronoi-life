@@ -17,6 +17,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "run":
         return run_command(args)
+    if args.command == "gui":
+        return gui_command(args)
     parser.print_help()
     return 2
 
@@ -82,6 +84,11 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--sigma", type=float, default=0.08)
     run.add_argument("--rho-max", type=parse_optional_float, default=None)
     run.add_argument("--density-scale", choices=["auto", "fixed"], default="auto")
+
+    gui = subparsers.add_parser("gui", help="open a browser GUI for interactive experiments")
+    gui.add_argument("--host", default="127.0.0.1")
+    gui.add_argument("--port", type=int, default=8765)
+    gui.add_argument("--open", action=argparse.BooleanOptionalAction, default=True)
     return parser
 
 
@@ -179,6 +186,13 @@ def run_command(args: argparse.Namespace) -> int:
     if show:
         run_interactive(simulation, overlay, output_dir, args.density_scale, args.rho_max)
 
+    return 0
+
+
+def gui_command(args: argparse.Namespace) -> int:
+    from .web_gui import serve_gui
+
+    serve_gui(host=args.host, port=args.port, open_browser=args.open)
     return 0
 
 
