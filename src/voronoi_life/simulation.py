@@ -58,6 +58,12 @@ class StabilityStatus:
         return payload
 
 
+@dataclass(frozen=True)
+class _StateSnapshot:
+    alive: np.ndarray
+    life_amount: np.ndarray
+
+
 class VoronoiLife:
     def __init__(self, config: SimulationConfig):
         if not 0.0 <= config.initial_alive_ratio <= 1.0:
@@ -112,6 +118,8 @@ class VoronoiLife:
 
     def step(self) -> np.ndarray:
         if self.is_stopped:
+            if self._stability_status.kind == "oscillating":
+                self._advance_oscillation_display()
             return self.state
 
         if self.config.rule.rule_type == "continuous":
@@ -199,6 +207,9 @@ class VoronoiLife:
         self._life_amount = self._initial_life_amount.copy()
 
     def _reset_stability_tracking(self) -> None:
+        self._state_history: list[_StateSnapshot] = []
+        self._oscillation_snapshots: list[_StateSnapshot] = []
+        self._oscillation_cursor: int | None = None
         if self.config.rule.rule_type == "probabilistic":
             self._seen_state_steps: dict[bytes, int] = {}
             self._stability_status = StabilityStatus(
@@ -207,6 +218,7 @@ class VoronoiLife:
             )
             return
 
+        self._state_history = [self._capture_state_snapshot()]
         self._seen_state_steps = {self._state_fingerprint(): self._step_index}
         self._stability_status = StabilityStatus()
 
@@ -216,6 +228,7 @@ class VoronoiLife:
 
         fingerprint = self._state_fingerprint()
         first_seen_step = self._seen_state_steps.get(fingerprint)
+        self._state_history.append(self._capture_state_snapshot())
         if first_seen_step is None:
             self._seen_state_steps[fingerprint] = self._step_index
             return
@@ -227,6 +240,29 @@ class VoronoiLife:
             first_seen_step=first_seen_step,
             period=period,
         )
+        if period > 1:
+            self._oscillation_snapshots = self._state_history[first_seen_step : self._step_index]
+            self._oscillation_cursor = 0
+
+    def _advance_oscillation_display(self) -> None:
+        if not self._oscillation_snapshots:
+            return
+
+        cursor = 0 if self._oscillation_cursor is None else self._oscillation_cursor
+        cursor = (cursor + 1) % len(self._oscillation_snapshots)
+        self._oscillation_cursor = cursor
+        self._apply_state_snapshot(self._oscillation_snapshots[cursor])
+        self._step_index += 1
+
+    def _capture_state_snapshot(self) -> _StateSnapshot:
+        return _StateSnapshot(
+            alive=self._alive.copy(),
+            life_amount=self._life_amount.copy(),
+        )
+
+    def _apply_state_snapshot(self, snapshot: _StateSnapshot) -> None:
+        self._alive = snapshot.alive.copy()
+        self._life_amount = snapshot.life_amount.copy()
 
     def _state_fingerprint(self) -> bytes:
         if self.config.rule.rule_type == "continuous":

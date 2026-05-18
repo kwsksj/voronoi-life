@@ -60,6 +60,30 @@ def test_simulation_stops_on_oscillation() -> None:
     assert len(states) == 3
 
 
+def test_oscillation_cycles_display_after_detection() -> None:
+    config = SimulationConfig(
+        cells=20,
+        seed=1,
+        initial_alive_ratio=0.0,
+        rule=RuleConfig(birth_count=0, survive_counts=()),
+    )
+    simulation = VoronoiLife(config)
+
+    states = simulation.run(10)
+    initial_state = states[0]
+    next_state = states[1]
+
+    simulation.step()
+    assert simulation.step_index == 3
+    assert simulation.stability_status.detected_step == 2
+    assert np.array_equal(simulation.state, next_state)
+
+    simulation.step()
+    assert simulation.step_index == 4
+    assert simulation.stability_status.detected_step == 2
+    assert np.array_equal(simulation.state, initial_state)
+
+
 def test_continuous_simulation_is_seed_reproducible() -> None:
     config = SimulationConfig(
         cells=40,

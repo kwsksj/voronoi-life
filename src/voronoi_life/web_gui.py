@@ -69,7 +69,10 @@ class GuiSession:
             self.view = build_view_config(raw, self.config.rule)
             steps = _bounded_int(raw, "steps", 1, minimum=1, maximum=500)
             for _ in range(steps):
-                if self.simulation.is_stopped:
+                if (
+                    self.simulation.is_stopped
+                    and self.simulation.stability_status.kind != "oscillating"
+                ):
                     break
                 self.simulation.step()
             return create_state_payload(self.simulation, self.view)
@@ -336,8 +339,8 @@ def _stability_message(stability: dict[str, object]) -> str:
         return f"定常状態を検出したため停止しました（step {stability.get('detected_step')}）。"
     if stability.get("kind") == "oscillating":
         return (
-            "振動状態を検出したため停止しました"
-            f"（周期 {stability.get('period')}、step {stability.get('detected_step')}）。"
+            "振動状態を繰り返し表示しています"
+            f"（周期 {stability.get('period')}、検出step {stability.get('detected_step')}）。"
         )
     return ""
 
@@ -1491,8 +1494,9 @@ INDEX_HTML = """<!doctype html>
       statusElement.textContent = statusLabel(payload.stability);
       statusElement.className = `status-pill ${statusClass(payload.stability)}`;
       message.textContent = payload.message || `${stats.rule} / ${stats.points} / ${stats.boundary}`;
-      message.classList.toggle("warning", Boolean(payload.stability?.stopped));
-      if (payload.stability?.stopped && playing) {
+      const isOscillating = payload.stability?.kind === "oscillating";
+      message.classList.toggle("warning", Boolean(payload.stability?.stopped && !isOscillating));
+      if (payload.stability?.stopped && !isOscillating && playing) {
         setPlaying(false);
       }
       if (payload.view) {

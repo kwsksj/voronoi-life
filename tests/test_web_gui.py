@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from voronoi_life.web_gui import (
+    GuiSession,
     INDEX_HTML,
     ViewConfig,
     build_simulation_config,
@@ -74,6 +75,33 @@ def test_gui_state_payload_contains_rendered_image_and_stats() -> None:
     assert payload["stats"]["cells"] == 20
     assert payload["stats"]["step"] == 0
     assert payload["stability"]["kind"] == "running"
+
+
+def test_gui_step_replays_oscillation_after_detection() -> None:
+    session = GuiSession()
+    raw = {
+        "cells": "20",
+        "seed": "1",
+        "initialAliveRatio": "0",
+        "ruleType": "absolute",
+        "birthCount": "0",
+        "surviveCounts": "0",
+    }
+
+    session.reset(raw)
+    payload = session.step({**raw, "steps": "2"})
+
+    assert payload["stability"]["kind"] == "oscillating"
+    assert payload["stability"]["period"] == 2
+    assert payload["stability"]["detected_step"] == 2
+    assert payload["stats"]["step"] == 2
+
+    payload = session.step({**raw, "steps": "1"})
+
+    assert payload["stability"]["kind"] == "oscillating"
+    assert payload["stability"]["detected_step"] == 2
+    assert payload["stats"]["step"] == 3
+    assert payload["message"].startswith("振動状態を繰り返し表示しています")
 
 
 def test_gui_html_contains_formula_and_hint_controls() -> None:
@@ -159,3 +187,4 @@ def test_gui_html_contains_status_pill_and_play_button_states() -> None:
     assert "status-not-tracked" in INDEX_HTML
     assert 'aria-pressed="false"' in INDEX_HTML
     assert 'playButton.setAttribute("aria-pressed", String(playing))' in INDEX_HTML
+    assert 'payload.stability?.stopped && !isOscillating && playing' in INDEX_HTML
