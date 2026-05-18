@@ -64,3 +64,31 @@ def test_gui_html_contains_formula_and_hint_controls() -> None:
     assert "ヒントを表示" in INDEX_HTML
     assert "hints-off" in INDEX_HTML
     assert "statStatus" in INDEX_HTML
+
+
+def test_gui_html_places_playback_controls_in_topbar() -> None:
+    assert 'class="control-group playback-settings"' in INDEX_HTML
+    assert 'name="playSteps" form="settings"' in INDEX_HTML
+    assert 'name="playInterval" form="settings"' in INDEX_HTML
+    assert 'legend>再生</legend>' not in INDEX_HTML
+
+
+def test_gui_html_places_apply_and_reset_near_related_controls() -> None:
+    aside_index = INDEX_HTML.index("<aside>")
+    apply_index = INDEX_HTML.index('id="apply"')
+    form_index = INDEX_HTML.index('<form id="settings">')
+    play_index = INDEX_HTML.index('id="play"')
+    reset_index = INDEX_HTML.index('id="resetState"')
+    step_index = INDEX_HTML.index('id="step"')
+
+    assert aside_index < apply_index < form_index
+    assert play_index < reset_index < step_index
+
+
+def test_gui_html_contains_status_pill_and_play_button_states() -> None:
+    assert "status-pill status-running" in INDEX_HTML
+    assert "status-steady" in INDEX_HTML
+    assert "status-oscillating" in INDEX_HTML
+    assert "status-not-tracked" in INDEX_HTML
+    assert 'aria-pressed="false"' in INDEX_HTML
+    assert 'playButton.setAttribute("aria-pressed", String(playing))' in INDEX_HTML
