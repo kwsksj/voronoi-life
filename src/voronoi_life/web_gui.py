@@ -473,6 +473,14 @@ INDEX_HTML = """<!doctype html>
       --line: #d7d7ce;
       --accent: #0f766e;
       --accent-dark: #0a5f59;
+      --play: #15803d;
+      --play-dark: #166534;
+      --step: #2563eb;
+      --step-dark: #1d4ed8;
+      --stop: #c2410c;
+      --stop-dark: #9a3412;
+      --purple: #7c3aed;
+      --purple-dark: #6d28d9;
       --warn: #a16207;
     }
 
@@ -517,6 +525,28 @@ INDEX_HTML = """<!doctype html>
       font-size: 20px;
       font-weight: 720;
       letter-spacing: 0;
+      white-space: nowrap;
+    }
+
+    .control-panel {
+      display: flex;
+      flex: 1 1 auto;
+      flex-wrap: wrap;
+      align-items: stretch;
+      justify-content: flex-end;
+      gap: 8px;
+      min-width: 260px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      padding: 5px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.68);
     }
 
     .toolbar {
@@ -538,6 +568,19 @@ INDEX_HTML = """<!doctype html>
       cursor: pointer;
     }
 
+    button.control-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .button-icon {
+      font-size: 12px;
+      line-height: 1;
+    }
+
     button:hover {
       border-color: #b7b8ad;
       background: #fbfbf8;
@@ -552,6 +595,75 @@ INDEX_HTML = """<!doctype html>
 
     button.primary:hover {
       background: var(--accent-dark);
+    }
+
+    button.play-action {
+      border-color: var(--play);
+      background: var(--play);
+      color: #ffffff;
+      font-weight: 680;
+    }
+
+    button.play-action:hover {
+      background: var(--play-dark);
+    }
+
+    button.play-action.is-stopping {
+      border-color: var(--stop);
+      background: var(--stop);
+    }
+
+    button.play-action.is-stopping:hover {
+      background: var(--stop-dark);
+    }
+
+    button.step-action {
+      border-color: var(--step);
+      background: #eff6ff;
+      color: #1e3a8a;
+      font-weight: 650;
+    }
+
+    button.step-action:hover {
+      border-color: var(--step-dark);
+      background: #dbeafe;
+    }
+
+    button.utility-action {
+      background: #f8fafc;
+      color: #334155;
+    }
+
+    button.save-action {
+      border-color: #c4b5fd;
+      background: #f5f3ff;
+      color: #4c1d95;
+      font-weight: 650;
+    }
+
+    button.save-action:hover {
+      border-color: var(--purple-dark);
+      background: #ede9fe;
+    }
+
+    .playback-settings {
+      min-width: 264px;
+    }
+
+    .compact-field {
+      display: grid;
+      grid-template-columns: auto minmax(70px, 92px);
+      align-items: center;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .compact-field input {
+      min-height: 30px;
+      padding: 5px 7px;
+      font-size: 12px;
     }
 
     .visual {
@@ -605,12 +717,59 @@ INDEX_HTML = """<!doctype html>
       text-overflow: ellipsis;
     }
 
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 24px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      font-size: 13px;
+      font-weight: 760;
+      line-height: 1.2;
+    }
+
+    .status-running {
+      border-color: #bfdbfe;
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .status-steady {
+      border-color: #bbf7d0;
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .status-oscillating {
+      border-color: #ddd6fe;
+      background: #ede9fe;
+      color: #5b21b6;
+    }
+
+    .status-not-tracked {
+      border-color: #e2e8f0;
+      background: #f1f5f9;
+      color: #475569;
+    }
+
     aside {
       height: 100vh;
       overflow: auto;
       border-left: 1px solid var(--line);
       background: #fbfbf8;
       padding: 16px;
+    }
+
+    .settings-action-bar {
+      display: grid;
+      margin-bottom: 14px;
+    }
+
+    .settings-action-bar button {
+      justify-self: stretch;
     }
 
     form {
@@ -774,6 +933,26 @@ INDEX_HTML = """<!doctype html>
       .stats {
         grid-template-columns: repeat(2, minmax(120px, 1fr));
       }
+
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .control-panel,
+      .control-group,
+      .playback-settings {
+        width: 100%;
+      }
+
+      .control-group {
+        justify-content: flex-start;
+      }
+
+      .compact-field {
+        grid-template-columns: minmax(58px, auto) minmax(80px, 1fr);
+        flex: 1 1 130px;
+      }
     }
   </style>
 </head>
@@ -782,13 +961,34 @@ INDEX_HTML = """<!doctype html>
     <section class="stage">
       <div class="topbar">
         <h1>Voronoi Life</h1>
-        <div class="toolbar">
-          <button id="apply" class="primary" type="button">設定を適用</button>
-          <button id="play" type="button">再生</button>
-          <button id="step" type="button">1ステップ</button>
-          <button id="step10" type="button">10ステップ</button>
-          <button id="resetState" type="button">初期状態へ</button>
-          <button id="savePng" type="button">PNG保存</button>
+        <div class="control-panel" aria-label="再生操作">
+          <div class="control-group">
+            <button id="play" class="control-button play-action" type="button" aria-pressed="false">
+              <span class="button-icon" aria-hidden="true">▶</span><span class="button-text">再生</span>
+            </button>
+            <button id="resetState" class="control-button utility-action" type="button">
+              <span class="button-icon" aria-hidden="true">↺</span>初期状態へ
+            </button>
+            <button id="step" class="control-button step-action" type="button">
+              <span class="button-icon" aria-hidden="true">›</span>1ステップ
+            </button>
+            <button id="step10" class="control-button step-action" type="button">
+              <span class="button-icon" aria-hidden="true">»</span>10ステップ
+            </button>
+          </div>
+          <div class="control-group playback-settings" aria-label="再生速度">
+            <label class="compact-field" for="playSteps">進める数
+              <input id="playSteps" name="playSteps" form="settings" type="number" min="1" max="500" step="1" value="1">
+            </label>
+            <label class="compact-field" for="playInterval">間隔 ms
+              <input id="playInterval" name="playInterval" form="settings" type="number" min="40" max="3000" step="10" value="160">
+            </label>
+          </div>
+          <div class="control-group">
+            <button id="savePng" class="control-button save-action" type="button">
+              <span class="button-icon" aria-hidden="true">⬇</span>PNG保存
+            </button>
+          </div>
         </div>
       </div>
 
@@ -803,13 +1003,18 @@ INDEX_HTML = """<!doctype html>
           <div class="stat"><span>mean density</span><strong id="statDensity">0</strong></div>
           <div class="stat"><span>total life</span><strong id="statLife">0</strong></div>
           <div class="stat"><span>mean degree</span><strong id="statDegree">0</strong></div>
-          <div class="stat"><span>state</span><strong id="statStatus">計算中</strong></div>
+          <div class="stat"><span>state</span><strong id="statStatus" class="status-pill status-running">進行中</strong></div>
         </div>
       </div>
       <div id="message" class="message">起動中...</div>
     </section>
 
     <aside>
+      <div class="settings-action-bar">
+        <button id="apply" class="primary control-button" type="button">
+          <span class="button-icon" aria-hidden="true">✓</span>設定を適用
+        </button>
+      </div>
       <form id="settings">
         <fieldset>
           <legend>基本</legend>
@@ -1016,20 +1221,6 @@ INDEX_HTML = """<!doctype html>
             </label>
           </div>
         </fieldset>
-
-        <fieldset>
-          <legend>再生</legend>
-          <div class="grid">
-            <label>一度に進める数
-              <input name="playSteps" type="number" min="1" max="500" step="1" value="1">
-              <span class="hint">再生時に1回の更新で進めるステップ数です。</span>
-            </label>
-            <label>間隔 ms
-              <input name="playInterval" type="number" min="40" max="3000" step="10" value="160">
-              <span class="hint">再生時の更新間隔です。小さいほど速く進みます。</span>
-            </label>
-          </div>
-        </fieldset>
       </form>
     </aside>
   </main>
@@ -1039,6 +1230,9 @@ INDEX_HTML = """<!doctype html>
     const preview = document.querySelector("#preview");
     const message = document.querySelector("#message");
     const playButton = document.querySelector("#play");
+    const playButtonIcon = playButton.querySelector(".button-icon");
+    const playButtonText = playButton.querySelector(".button-text");
+    const statusElement = document.querySelector("#statStatus");
     let playing = false;
     let playTimer = null;
 
@@ -1090,7 +1284,8 @@ INDEX_HTML = """<!doctype html>
       document.querySelector("#statDensity").textContent = formatNumber(stats.meanDensity);
       document.querySelector("#statLife").textContent = formatNumber(stats.totalLife);
       document.querySelector("#statDegree").textContent = formatNumber(stats.meanDegree);
-      document.querySelector("#statStatus").textContent = statusLabel(payload.stability);
+      statusElement.textContent = statusLabel(payload.stability);
+      statusElement.className = `status-pill ${statusClass(payload.stability)}`;
       message.textContent = payload.message || `${stats.rule} / ${stats.points} / ${stats.boundary}`;
       message.classList.toggle("warning", Boolean(payload.stability?.stopped));
       if (payload.stability?.stopped && playing) {
@@ -1102,11 +1297,19 @@ INDEX_HTML = """<!doctype html>
     }
 
     function statusLabel(stability) {
-      if (!stability) return "計算中";
+      if (!stability) return "進行中";
       if (stability.kind === "steady") return "定常";
       if (stability.kind === "oscillating") return `振動 ${stability.period}`;
       if (stability.kind === "not_tracked") return "判定対象外";
-      return "計算中";
+      return "進行中";
+    }
+
+    function statusClass(stability) {
+      if (!stability) return "status-running";
+      if (stability.kind === "steady") return "status-steady";
+      if (stability.kind === "oscillating") return "status-oscillating";
+      if (stability.kind === "not_tracked") return "status-not-tracked";
+      return "status-running";
     }
 
     function formatPct(value) {
@@ -1249,7 +1452,10 @@ INDEX_HTML = """<!doctype html>
 
     function setPlaying(next) {
       playing = next;
-      playButton.textContent = playing ? "停止" : "再生";
+      playButtonText.textContent = playing ? "停止" : "再生";
+      playButtonIcon.textContent = playing ? "■" : "▶";
+      playButton.classList.toggle("is-stopping", playing);
+      playButton.setAttribute("aria-pressed", String(playing));
       if (playTimer) {
         window.clearTimeout(playTimer);
         playTimer = null;
