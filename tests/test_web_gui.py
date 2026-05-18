@@ -55,6 +55,7 @@ def test_gui_state_payload_contains_rendered_image_and_stats() -> None:
     assert payload["image"].startswith("data:image/png;base64,")
     assert payload["stats"]["cells"] == 20
     assert payload["stats"]["step"] == 0
+    assert payload["stability"]["kind"] == "running"
 
 
 def test_gui_html_contains_formula_and_hint_controls() -> None:
@@ -62,3 +63,4 @@ def test_gui_html_contains_formula_and_hint_controls() -> None:
     assert "formulaBody" in INDEX_HTML
     assert "ヒントを表示" in INDEX_HTML
     assert "hints-off" in INDEX_HTML
+    assert "statStatus" in INDEX_HTML

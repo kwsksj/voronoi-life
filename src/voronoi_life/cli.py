@@ -178,9 +178,21 @@ def run_command(args: argparse.Namespace) -> int:
 
         json_path = output_dir / "experiment.json"
         outputs["json"] = str(json_path)
-        write_experiment_json(json_path, config, args.steps, overlay, outputs)
+        write_experiment_json(
+            json_path,
+            config,
+            simulation.step_index,
+            overlay,
+            outputs,
+            simulation.stability_status.to_json_dict(),
+        )
 
-    print_summary(config, args.steps, outputs)
+    print_summary(
+        config,
+        simulation.step_index,
+        outputs,
+        simulation.stability_status.to_json_dict(),
+    )
 
     show = sys.stdout.isatty() if args.show is None else args.show
     if show:
@@ -216,12 +228,23 @@ def print_summary(
     config: SimulationConfig,
     steps: int,
     outputs: dict[str, str],
+    stability_status: dict[str, object] | None = None,
 ) -> None:
     print(
         f"completed: cells={config.cells} steps={steps} seed={config.seed} "
         f"points={config.point_method} rule={config.rule.rule_type} "
         f"boundary={'periodic' if config.periodic else 'open'}"
     )
+    if stability_status and stability_status.get("stopped"):
+        kind = stability_status["kind"]
+        if kind == "steady":
+            print(f"stopped: steady state at step {stability_status.get('detected_step')}")
+        elif kind == "oscillating":
+            print(
+                "stopped: oscillation "
+                f"period={stability_status.get('period')} "
+                f"at step {stability_status.get('detected_step')}"
+            )
     for kind, path in outputs.items():
         print(f"{kind}: {path}")
 
@@ -251,9 +274,11 @@ def run_interactive(
         fig.canvas.draw_idle()
 
     def tick() -> bool:
-        if running["value"]:
+        if running["value"] and not simulation.is_stopped:
             simulation.step()
             redraw()
+        if simulation.is_stopped:
+            running["value"] = False
         return True
 
     def save_current_png() -> None:
@@ -274,7 +299,7 @@ def run_interactive(
 
     def on_key(event) -> None:
         if event.key == " ":
-            running["value"] = not running["value"]
+            running["value"] = (not running["value"]) and not simulation.is_stopped
         elif event.key == "n":
             simulation.step()
             redraw()

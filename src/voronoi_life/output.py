@@ -18,6 +18,7 @@ def write_experiment_json(
     steps: int,
     overlay: str,
     outputs: dict[str, str],
+    stability_status: dict[str, object] | None = None,
 ) -> None:
     payload = {
         "cell_count": config.cells,
@@ -31,6 +32,8 @@ def write_experiment_json(
         "overlay": overlay,
         "outputs": outputs,
     }
+    if stability_status is not None:
+        payload["stability_status"] = stability_status
     if config.rule.rule_type == "continuous":
         payload["continuous_parameters"] = config.rule.continuous_json_dict()
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")

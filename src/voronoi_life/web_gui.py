@@ -69,6 +69,8 @@ class GuiSession:
             self.view = build_view_config(raw, self.config.rule)
             steps = _bounded_int(raw, "steps", 1, minimum=1, maximum=500)
             for _ in range(steps):
+                if self.simulation.is_stopped:
+                    break
                 self.simulation.step()
             return create_state_payload(self.simulation, self.view)
 
@@ -117,6 +119,7 @@ class GuiSession:
                 self.simulation.step_index,
                 self.view.overlay,
                 outputs,
+                self.simulation.stability_status.to_json_dict(),
             )
             payload = create_state_payload(
                 self.simulation,
@@ -207,16 +210,18 @@ def create_state_payload(
     view: ViewConfig,
     message: str = "",
 ) -> dict[str, Any]:
+    stability = simulation.stability_status.to_json_dict()
     return {
         "ok": True,
         "image": render_state_data_url(simulation, view),
         "stats": _stats(simulation),
+        "stability": stability,
         "view": {
             "overlay": view.overlay,
             "densityScale": view.density_scale,
             "rhoMax": view.rho_max,
         },
-        "message": message,
+        "message": message or _stability_message(stability),
     }
 
 
@@ -277,6 +282,7 @@ def _candidate_ports(port: int) -> range:
 def _stats(simulation: VoronoiLife) -> dict[str, Any]:
     alive = np.asarray(simulation.alive, dtype=bool)
     density = np.asarray(simulation.density, dtype=float)
+    stability = simulation.stability_status.to_json_dict()
     return {
         "step": simulation.step_index,
         "cells": simulation.config.cells,
@@ -289,7 +295,21 @@ def _stats(simulation: VoronoiLife) -> dict[str, Any]:
         "boundary": "periodic" if simulation.space.periodic else "open",
         "rule": simulation.config.rule.rule_type,
         "points": simulation.config.point_method,
+        "stabilityKind": stability["kind"],
+        "stabilityStopped": stability["stopped"],
+        "stabilityPeriod": stability.get("period"),
     }
+
+
+def _stability_message(stability: dict[str, object]) -> str:
+    if stability.get("kind") == "steady":
+        return f"定常状態を検出したため停止しました（step {stability.get('detected_step')}）。"
+    if stability.get("kind") == "oscillating":
+        return (
+            "振動状態を検出したため停止しました"
+            f"（周期 {stability.get('period')}、step {stability.get('detected_step')}）。"
+        )
+    return ""
 
 
 def _rule_label(rule: RuleConfig) -> str:
@@ -555,7 +575,7 @@ INDEX_HTML = """<!doctype html>
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(5, minmax(94px, 1fr));
+      grid-template-columns: repeat(6, minmax(86px, 1fr));
       gap: 8px;
       width: 100%;
     }
@@ -783,6 +803,7 @@ INDEX_HTML = """<!doctype html>
           <div class="stat"><span>mean density</span><strong id="statDensity">0</strong></div>
           <div class="stat"><span>total life</span><strong id="statLife">0</strong></div>
           <div class="stat"><span>mean degree</span><strong id="statDegree">0</strong></div>
+          <div class="stat"><span>state</span><strong id="statStatus">計算中</strong></div>
         </div>
       </div>
       <div id="message" class="message">起動中...</div>
@@ -1069,10 +1090,23 @@ INDEX_HTML = """<!doctype html>
       document.querySelector("#statDensity").textContent = formatNumber(stats.meanDensity);
       document.querySelector("#statLife").textContent = formatNumber(stats.totalLife);
       document.querySelector("#statDegree").textContent = formatNumber(stats.meanDegree);
+      document.querySelector("#statStatus").textContent = statusLabel(payload.stability);
       message.textContent = payload.message || `${stats.rule} / ${stats.points} / ${stats.boundary}`;
+      message.classList.toggle("warning", Boolean(payload.stability?.stopped));
+      if (payload.stability?.stopped && playing) {
+        setPlaying(false);
+      }
       if (payload.view && payload.view.overlay !== form.elements.overlay.value) {
         form.elements.overlay.value = payload.view.overlay;
       }
+    }
+
+    function statusLabel(stability) {
+      if (!stability) return "計算中";
+      if (stability.kind === "steady") return "定常";
+      if (stability.kind === "oscillating") return `振動 ${stability.period}`;
+      if (stability.kind === "not_tracked") return "判定対象外";
+      return "計算中";
     }
 
     function formatPct(value) {

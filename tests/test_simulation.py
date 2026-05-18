@@ -16,12 +16,48 @@ def test_initial_state_is_seed_reproducible() -> None:
 
 
 def test_simulation_runs_more_than_100_steps() -> None:
-    simulation = VoronoiLife(SimulationConfig(cells=80, seed=3))
+    simulation = VoronoiLife(
+        SimulationConfig(cells=80, seed=3, rule=RuleConfig(rule_type="probabilistic"))
+    )
     states = simulation.run(120)
 
     assert len(states) == 121
     assert simulation.step_index == 120
     assert states[-1].shape == (80,)
+    assert simulation.stability_status.kind == "not_tracked"
+
+
+def test_simulation_stops_on_steady_state() -> None:
+    simulation = VoronoiLife(SimulationConfig(cells=20, seed=1, initial_alive_ratio=0.0))
+
+    simulation.step()
+    status = simulation.stability_status
+
+    assert status.kind == "steady"
+    assert status.stopped is True
+    assert status.detected_step == 1
+
+    simulation.step()
+    assert simulation.step_index == 1
+
+
+def test_simulation_stops_on_oscillation() -> None:
+    config = SimulationConfig(
+        cells=20,
+        seed=1,
+        initial_alive_ratio=0.0,
+        rule=RuleConfig(birth_count=0, survive_counts=()),
+    )
+    simulation = VoronoiLife(config)
+
+    states = simulation.run(10)
+    status = simulation.stability_status
+
+    assert status.kind == "oscillating"
+    assert status.period == 2
+    assert status.detected_step == 2
+    assert simulation.step_index == 2
+    assert len(states) == 3
 
 
 def test_continuous_simulation_is_seed_reproducible() -> None:
