@@ -54,8 +54,12 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--fps", type=int, default=12)
     run.add_argument("--show", action=argparse.BooleanOptionalAction, default=None)
 
-    run.add_argument("--birth-count", type=int, default=3)
-    run.add_argument("--survive-counts", default="2,3")
+    run.add_argument("--birth-min-count", type=int, default=3)
+    run.add_argument("--birth-max-count", type=int, default=3)
+    run.add_argument("--survive-min-count", type=int, default=2)
+    run.add_argument("--survive-max-count", type=int, default=3)
+    run.add_argument("--birth-count", type=int, default=None)
+    run.add_argument("--survive-counts", default=None)
     run.add_argument("--birth-min", type=float, default=0.30)
     run.add_argument("--birth-max", type=float, default=0.45)
     run.add_argument("--survive-min", type=float, default=0.20)
@@ -102,8 +106,14 @@ def run_command(args: argparse.Namespace) -> int:
 
     rule = RuleConfig(
         rule_type=args.rule,
+        birth_min_count=args.birth_min_count,
+        birth_max_count=args.birth_max_count,
+        survive_min_count=args.survive_min_count,
+        survive_max_count=args.survive_max_count,
         birth_count=args.birth_count,
-        survive_counts=parse_counts(args.survive_counts),
+        survive_counts=(
+            parse_counts(args.survive_counts) if args.survive_counts is not None else None
+        ),
         birth_min=args.birth_min,
         birth_max=args.birth_max,
         survive_min=args.survive_min,

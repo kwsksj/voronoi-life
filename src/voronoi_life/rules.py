@@ -15,8 +15,12 @@ DensityScale = Literal["auto", "fixed"]
 @dataclass(frozen=True)
 class RuleConfig:
     rule_type: RuleType = "absolute"
-    birth_count: int = 3
-    survive_counts: tuple[int, ...] = (2, 3)
+    birth_min_count: int = 3
+    birth_max_count: int = 3
+    survive_min_count: int = 2
+    survive_max_count: int = 3
+    birth_count: int | None = None
+    survive_counts: tuple[int, ...] | None = None
     birth_min: float = 0.30
     birth_max: float = 0.45
     survive_min: float = 0.20
@@ -38,9 +42,22 @@ class RuleConfig:
     rho_max: float | None = None
     density_scale: DensityScale = "auto"
 
+    def __post_init__(self) -> None:
+        if self.birth_count is not None:
+            object.__setattr__(self, "birth_min_count", self.birth_count)
+            object.__setattr__(self, "birth_max_count", self.birth_count)
+        if self.survive_counts is not None and self.survive_counts:
+            object.__setattr__(self, "survive_min_count", min(self.survive_counts))
+            object.__setattr__(self, "survive_max_count", max(self.survive_counts))
+
     def to_json_dict(self) -> dict[str, object]:
         values = asdict(self)
-        values["survive_counts"] = list(self.survive_counts)
+        if self.survive_counts is None:
+            values.pop("survive_counts")
+        else:
+            values["survive_counts"] = list(self.survive_counts)
+        if self.birth_count is None:
+            values.pop("birth_count")
         if self.rule_type != "continuous":
             for key in (
                 "continuous_init",
@@ -87,8 +104,16 @@ def step_state(
     counts = alive_neighbor_counts(alive, adjacency)
 
     if rule.rule_type == "absolute":
-        survives = np.isin(counts, np.asarray(rule.survive_counts, dtype=int))
-        births = counts == rule.birth_count
+        if rule.birth_count is None:
+            births = (counts >= rule.birth_min_count) & (counts <= rule.birth_max_count)
+        else:
+            births = counts == rule.birth_count
+        if rule.survive_counts is None:
+            survives = (counts >= rule.survive_min_count) & (
+                counts <= rule.survive_max_count
+            )
+        else:
+            survives = np.isin(counts, np.asarray(rule.survive_counts, dtype=int))
         return np.where(alive, survives, births)
 
     density = alive_neighbor_density(alive, adjacency, counts=counts)

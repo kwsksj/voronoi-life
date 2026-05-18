@@ -25,6 +25,19 @@ def test_absolute_rule_birth_and_survival() -> None:
     assert next_alive.tolist() == [True, True, True, True]
 
 
+def test_absolute_rule_uses_birth_and_survival_count_ranges() -> None:
+    alive = np.array([False, True, True, True])
+    rule = RuleConfig(
+        rule_type="absolute",
+        birth_min_count=1,
+        birth_max_count=2,
+        survive_min_count=2,
+        survive_max_count=2,
+    )
+    next_alive = step_state(alive, ADJACENCY, rule)
+    assert next_alive.tolist() == [False, True, True, True]
+
+
 def test_absolute_rule_underpopulation_death() -> None:
     alive = np.array([True, False, False, False])
     next_alive = step_state(alive, ADJACENCY, RuleConfig(rule_type="absolute"))

@@ -62,6 +62,12 @@ uv run voronoi-life run --cells 200 --steps 50 --seed 1 --rule absolute
 uv run voronoi-life run --cells 200 --steps 50 --seed 1 --rule density
 ```
 
+`absolute` では、alive 隣接セル数の下限・上限を誕生と生存で別々に指定できます。
+
+```bash
+uv run voronoi-life run --rule absolute --birth-min-count 3 --birth-max-count 4 --survive-min-count 2 --survive-max-count 4
+```
+
 ### 点群の作り方を変える
 
 点群は、ボロノイセルの元になる点の並び方です。点群を変えると、空間の不均一さが変わります。

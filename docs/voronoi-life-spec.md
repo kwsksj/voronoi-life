@@ -103,14 +103,16 @@
 
 Conway Life に近いルール。
 
-- dead cell は alive neighbor 数が `birth_count` のとき alive になる。
-- alive cell は alive neighbor 数が `survive_counts` に含まれるとき alive のまま。
+- dead cell は alive neighbor 数が `birth_min_count <= n <= birth_max_count` のとき alive になる。
+- alive cell は alive neighbor 数が `survive_min_count <= n <= survive_max_count` のとき alive のまま。
 - それ以外は dead になる。
 
 初期値:
 
-- `birth_count = 3`
-- `survive_counts = [2, 3]`
+- `birth_min_count = 3`
+- `birth_max_count = 3`
+- `survive_min_count = 2`
+- `survive_max_count = 3`
 
 観察したい点:
 

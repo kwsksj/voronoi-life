@@ -132,10 +132,40 @@ class GuiSession:
 
 def build_simulation_config(raw: dict[str, Any]) -> SimulationConfig:
     rule_type = _choice(raw, "ruleType", "absolute", RULE_TYPES)
+    legacy_birth_count = _bounded_int(raw, "birthCount", 3, minimum=0, maximum=24)
+    legacy_survive_counts = _parse_counts(raw.get("surviveCounts", "2,3"))
+    legacy_survive_min = min(legacy_survive_counts) if legacy_survive_counts else 1
+    legacy_survive_max = max(legacy_survive_counts) if legacy_survive_counts else 0
     rule = RuleConfig(
         rule_type=rule_type,  # type: ignore[arg-type]
-        birth_count=_bounded_int(raw, "birthCount", 3, minimum=0, maximum=24),
-        survive_counts=_parse_counts(raw.get("surviveCounts", "2,3")),
+        birth_min_count=_bounded_int(
+            raw,
+            "birthMinCount",
+            legacy_birth_count,
+            minimum=0,
+            maximum=24,
+        ),
+        birth_max_count=_bounded_int(
+            raw,
+            "birthMaxCount",
+            legacy_birth_count,
+            minimum=0,
+            maximum=24,
+        ),
+        survive_min_count=_bounded_int(
+            raw,
+            "surviveMinCount",
+            legacy_survive_min,
+            minimum=0,
+            maximum=24,
+        ),
+        survive_max_count=_bounded_int(
+            raw,
+            "surviveMaxCount",
+            legacy_survive_max,
+            minimum=0,
+            maximum=24,
+        ),
         birth_min=_bounded_float(raw, "birthMin", 0.30, minimum=0.0, maximum=1.0),
         birth_max=_bounded_float(raw, "birthMax", 0.45, minimum=0.0, maximum=1.0),
         survive_min=_bounded_float(raw, "surviveMin", 0.20, minimum=0.0, maximum=1.0),
@@ -1277,13 +1307,21 @@ INDEX_HTML = """<!doctype html>
         <fieldset class="rule-group" data-rule="absolute">
           <legend>absolute</legend>
           <div class="grid">
-            <label>birth count
-              <input name="birthCount" type="number" min="0" max="24" step="1" value="3">
-              <span class="hint">死んでいるセルが alive になるために必要な alive 隣接セル数です。</span>
+            <label>birth min count
+              <input name="birthMinCount" type="number" min="0" max="24" step="1" value="3">
+              <span class="hint">死んでいるセルが alive になるために必要な alive 隣接セル数の下限です。</span>
             </label>
-            <label>survive counts
-              <input name="surviveCounts" type="text" value="2,3">
-              <span class="hint">alive のまま残る隣接セル数です。カンマ区切りで指定します。</span>
+            <label>birth max count
+              <input name="birthMaxCount" type="number" min="0" max="24" step="1" value="3">
+              <span class="hint">死んでいるセルが alive になるために必要な alive 隣接セル数の上限です。</span>
+            </label>
+            <label>survive min count
+              <input name="surviveMinCount" type="number" min="0" max="24" step="1" value="2">
+              <span class="hint">alive のまま残るために必要な alive 隣接セル数の下限です。</span>
+            </label>
+            <label>survive max count
+              <input name="surviveMaxCount" type="number" min="0" max="24" step="1" value="3">
+              <span class="hint">alive のまま残るために必要な alive 隣接セル数の上限です。</span>
             </label>
           </div>
         </fieldset>
@@ -1565,8 +1603,8 @@ INDEX_HTML = """<!doctype html>
       if (rule === "absolute") {
         lines.push(initialAliveFormulaLine());
         lines.push(
-          ["誕生", `dead cell becomes alive when n_i == birth_count = ${formatInput("birthCount")}`],
-          ["生存", `alive cell stays alive when n_i is in {${fieldValue("surviveCounts") || "2,3"}}`],
+          ["誕生", `dead cell becomes alive when ${formatInput("birthMinCount")} <= n_i <= ${formatInput("birthMaxCount")}`],
+          ["生存", `alive cell stays alive when ${formatInput("surviveMinCount")} <= n_i <= ${formatInput("surviveMaxCount")}`],
         );
       } else if (rule === "density") {
         lines.push(initialAliveFormulaLine());

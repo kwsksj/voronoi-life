@@ -39,6 +39,24 @@ def test_gui_config_maps_form_values_to_simulation_config() -> None:
     assert config.include_edge_metrics is True
 
 
+def test_gui_config_maps_absolute_count_ranges() -> None:
+    config = build_simulation_config(
+        {
+            "ruleType": "absolute",
+            "birthMinCount": "2",
+            "birthMaxCount": "4",
+            "surviveMinCount": "1",
+            "surviveMaxCount": "5",
+        }
+    )
+
+    assert config.rule.rule_type == "absolute"
+    assert config.rule.birth_min_count == 2
+    assert config.rule.birth_max_count == 4
+    assert config.rule.survive_min_count == 1
+    assert config.rule.survive_max_count == 5
+
+
 def test_gui_view_avoids_binary_overlays_for_continuous_rule() -> None:
     config = build_simulation_config({"ruleType": "continuous"})
     view = build_view_config({"overlay": "alive-count"}, config.rule)
@@ -61,6 +79,10 @@ def test_gui_state_payload_contains_rendered_image_and_stats() -> None:
 def test_gui_html_contains_formula_and_hint_controls() -> None:
     assert "数式" in INDEX_HTML
     assert "formulaBody" in INDEX_HTML
+    assert 'name="birthMinCount"' in INDEX_HTML
+    assert 'name="birthMaxCount"' in INDEX_HTML
+    assert 'name="surviveMinCount"' in INDEX_HTML
+    assert 'name="surviveMaxCount"' in INDEX_HTML
     assert "ヒントを表示" in INDEX_HTML
     assert "hints-off" in INDEX_HTML
     assert "label:hover .hint" in INDEX_HTML
