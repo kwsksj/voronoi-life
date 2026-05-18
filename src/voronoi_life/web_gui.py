@@ -693,11 +693,19 @@ INDEX_HTML = """<!doctype html>
     }
 
     .stat {
+      position: relative;
       border: 1px solid var(--line);
       border-radius: 7px;
       background: var(--surface);
       padding: 8px 9px;
       min-width: 0;
+      cursor: help;
+      outline: none;
+    }
+
+    .stat:focus-visible {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(78, 124, 115, 0.18);
     }
 
     .stat span {
@@ -799,11 +807,13 @@ INDEX_HTML = """<!doctype html>
     }
 
     label {
+      position: relative;
       display: grid;
       gap: 5px;
       color: var(--muted);
       font-size: 12px;
       font-weight: 620;
+      cursor: help;
     }
 
     input,
@@ -845,14 +855,94 @@ INDEX_HTML = """<!doctype html>
     }
 
     .hint {
-      color: var(--muted);
+      position: absolute;
+      z-index: 30;
+      top: calc(100% + 6px);
+      left: 0;
+      width: min(280px, calc(100vw - 40px));
+      padding: 8px 10px;
+      border: 1px solid #d6d3c8;
+      border-radius: 7px;
+      background: #1f2937;
+      color: #ffffff;
+      box-shadow: 0 10px 24px rgba(31, 41, 55, 0.18);
       font-size: 11px;
       font-weight: 500;
       line-height: 1.35;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-2px);
+      transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+      visibility: hidden;
+      white-space: normal;
+    }
+
+    .hint::before {
+      position: absolute;
+      top: -5px;
+      left: 12px;
+      width: 8px;
+      height: 8px;
+      border-top: 1px solid #d6d3c8;
+      border-left: 1px solid #d6d3c8;
+      background: #1f2937;
+      content: "";
+      transform: rotate(45deg);
+    }
+
+    .grid label:nth-child(2n) .hint {
+      right: 0;
+      left: auto;
+    }
+
+    .grid label:nth-child(2n) .hint::before {
+      right: 12px;
+      left: auto;
+    }
+
+    label:hover .hint,
+    label:focus-within .hint,
+    label.is-hint-open .hint,
+    .stat:hover .hint,
+    .stat:focus .hint,
+    .stat:focus-within .hint,
+    .stat.is-hint-open .hint {
+      opacity: 1;
+      transform: translateY(0);
+      visibility: visible;
+    }
+
+    .stat .hint {
+      top: auto;
+      bottom: calc(100% + 6px);
+      color: #ffffff;
+    }
+
+    .stat .hint::before {
+      top: auto;
+      bottom: -5px;
+      border: 0;
+      border-right: 1px solid #d6d3c8;
+      border-bottom: 1px solid #d6d3c8;
+    }
+
+    .stats .stat:nth-child(n + 4) .hint {
+      right: 0;
+      left: auto;
+    }
+
+    .stats .stat:nth-child(n + 4) .hint::before {
+      right: 12px;
+      left: auto;
     }
 
     .hints-off .hint {
       display: none;
+    }
+
+    .hints-off label,
+    .hints-off .stat {
+      cursor: default;
     }
 
     .range-row {
@@ -934,6 +1024,30 @@ INDEX_HTML = """<!doctype html>
         grid-template-columns: repeat(2, minmax(120px, 1fr));
       }
 
+      .stats .stat:nth-child(n) .hint,
+      .grid label:nth-child(n) .hint {
+        right: auto;
+        left: 0;
+      }
+
+      .stats .stat:nth-child(2n) .hint,
+      .grid label:nth-child(2n) .hint {
+        right: 0;
+        left: auto;
+      }
+
+      .stats .stat:nth-child(n) .hint::before,
+      .grid label:nth-child(n) .hint::before {
+        right: auto;
+        left: 12px;
+      }
+
+      .stats .stat:nth-child(2n) .hint::before,
+      .grid label:nth-child(2n) .hint::before {
+        right: 12px;
+        left: auto;
+      }
+
       .topbar {
         align-items: flex-start;
         flex-direction: column;
@@ -998,12 +1112,30 @@ INDEX_HTML = """<!doctype html>
 
       <div class="statusbar">
         <div class="stats" aria-live="polite">
-          <div class="stat"><span>step</span><strong id="statStep">0</strong></div>
-          <div class="stat"><span>alive</span><strong id="statAlive">0</strong></div>
-          <div class="stat"><span>mean density</span><strong id="statDensity">0</strong></div>
-          <div class="stat"><span>total life</span><strong id="statLife">0</strong></div>
-          <div class="stat"><span>mean degree</span><strong id="statDegree">0</strong></div>
-          <div class="stat"><span>state</span><strong id="statStatus" class="status-pill status-running">進行中</strong></div>
+          <div class="stat" tabindex="0" aria-describedby="hintStep">
+            <span>step</span><strong id="statStep">0</strong>
+            <span id="hintStep" class="hint">現在までに進んだ世代数です。1ステップごとに全セルの次の状態を計算します。</span>
+          </div>
+          <div class="stat" tabindex="0" aria-describedby="hintAlive">
+            <span>alive</span><strong id="statAlive">0</strong>
+            <span id="hintAlive" class="hint">alive のセル数と全体に占める割合です。binary 系ルールで主に使います。</span>
+          </div>
+          <div class="stat" tabindex="0" aria-describedby="hintDensity">
+            <span>mean density</span><strong id="statDensity">0</strong>
+            <span id="hintDensity" class="hint">各セルの密度の平均です。continuous ルールでは、画面全体の濃さの目安になります。</span>
+          </div>
+          <div class="stat" tabindex="0" aria-describedby="hintLife">
+            <span>total life</span><strong id="statLife">0</strong>
+            <span id="hintLife" class="hint">全セルが持っている life amount の合計です。continuous ルールでは総量の増減を確認できます。</span>
+          </div>
+          <div class="stat" tabindex="0" aria-describedby="hintDegree">
+            <span>mean degree</span><strong id="statDegree">0</strong>
+            <span id="hintDegree" class="hint">1つのセルが平均で何個の隣接セルを持つかです。点群の粗密や形の影響を受けます。</span>
+          </div>
+          <div class="stat" tabindex="0" aria-describedby="hintStatus">
+            <span>state</span><strong id="statStatus" class="status-pill status-running">進行中</strong>
+            <span id="hintStatus" class="hint">現在の判定状態です。定常は変化停止、振動は同じ形の周期的な繰り返しを示します。</span>
+          </div>
         </div>
       </div>
       <div id="message" class="message">起動中...</div>

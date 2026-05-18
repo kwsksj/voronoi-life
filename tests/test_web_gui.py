@@ -63,7 +63,24 @@ def test_gui_html_contains_formula_and_hint_controls() -> None:
     assert "formulaBody" in INDEX_HTML
     assert "ヒントを表示" in INDEX_HTML
     assert "hints-off" in INDEX_HTML
+    assert "label:hover .hint" in INDEX_HTML
+    assert "label:focus-within .hint" in INDEX_HTML
+    assert ".hints-off label" in INDEX_HTML
     assert "statStatus" in INDEX_HTML
+
+
+def test_gui_html_contains_status_hints() -> None:
+    assert 'tabindex="0" aria-describedby="hintStep"' in INDEX_HTML
+    assert 'tabindex="0" aria-describedby="hintAlive"' in INDEX_HTML
+    assert 'tabindex="0" aria-describedby="hintDensity"' in INDEX_HTML
+    assert 'tabindex="0" aria-describedby="hintLife"' in INDEX_HTML
+    assert 'tabindex="0" aria-describedby="hintDegree"' in INDEX_HTML
+    assert 'tabindex="0" aria-describedby="hintStatus"' in INDEX_HTML
+    assert "現在までに進んだ世代数です" in INDEX_HTML
+    assert ".stat:hover .hint" in INDEX_HTML
+    assert ".stat:focus .hint" in INDEX_HTML
+    assert ".stat:focus-within .hint" in INDEX_HTML
+    assert "color: #ffffff;" in INDEX_HTML
 
 
 def test_gui_html_places_playback_controls_in_topbar() -> None:
