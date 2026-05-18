@@ -687,7 +687,7 @@ INDEX_HTML = """<!doctype html>
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(6, minmax(86px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
       gap: 8px;
       width: 100%;
     }
@@ -992,7 +992,7 @@ INDEX_HTML = """<!doctype html>
       white-space: normal;
     }
 
-    .rule-group[hidden] {
+    [hidden] {
       display: none;
     }
 
@@ -1046,6 +1046,29 @@ INDEX_HTML = """<!doctype html>
       .grid label:nth-child(2n) .hint::before {
         right: 12px;
         left: auto;
+      }
+
+      .hint,
+      .stat .hint,
+      .stats .stat:nth-child(n) .hint,
+      .grid label:nth-child(n) .hint,
+      .stats .stat:nth-child(2n) .hint,
+      .grid label:nth-child(2n) .hint {
+        position: fixed;
+        top: auto;
+        right: 16px;
+        bottom: 16px;
+        left: 16px;
+        width: auto;
+      }
+
+      .hint::before,
+      .stat .hint::before,
+      .stats .stat:nth-child(n) .hint::before,
+      .grid label:nth-child(n) .hint::before,
+      .stats .stat:nth-child(2n) .hint::before,
+      .grid label:nth-child(2n) .hint::before {
+        display: none;
       }
 
       .topbar {
@@ -1116,17 +1139,21 @@ INDEX_HTML = """<!doctype html>
             <span>step</span><strong id="statStep">0</strong>
             <span id="hintStep" class="hint">現在までに進んだ世代数です。1ステップごとに全セルの次の状態を計算します。</span>
           </div>
-          <div class="stat" tabindex="0" aria-describedby="hintAlive">
+          <div class="stat" tabindex="0" aria-describedby="hintAlive" data-visible-when="binary">
             <span>alive</span><strong id="statAlive">0</strong>
-            <span id="hintAlive" class="hint">alive のセル数と全体に占める割合です。binary 系ルールで主に使います。</span>
+            <span id="hintAlive" class="hint">alive のセル数と全体に占める割合です。binary 系ルールの状態確認に使います。</span>
           </div>
-          <div class="stat" tabindex="0" aria-describedby="hintDensity">
+          <div class="stat" tabindex="0" aria-describedby="hintDensity" data-visible-when="continuous">
             <span>mean density</span><strong id="statDensity">0</strong>
-            <span id="hintDensity" class="hint">各セルの密度の平均です。continuous ルールでは、画面全体の濃さの目安になります。</span>
+            <span id="hintDensity" class="hint">各セルの密度の平均です。continuous ルールで画面全体の濃さの目安になります。</span>
           </div>
-          <div class="stat" tabindex="0" aria-describedby="hintLife">
+          <div class="stat" tabindex="0" aria-describedby="hintMaxDensity" data-visible-when="continuous">
+            <span>max density</span><strong id="statMaxDensity">0</strong>
+            <span id="hintMaxDensity" class="hint">もっとも密度が高いセルの値です。濃い場所がどれくらい強いかを見る目安です。</span>
+          </div>
+          <div class="stat" tabindex="0" aria-describedby="hintLife" data-visible-when="continuous">
             <span>total life</span><strong id="statLife">0</strong>
-            <span id="hintLife" class="hint">全セルが持っている life amount の合計です。continuous ルールでは総量の増減を確認できます。</span>
+            <span id="hintLife" class="hint">全セルが持っている life amount の合計です。continuous ルールで総量の増減を確認できます。</span>
           </div>
           <div class="stat" tabindex="0" aria-describedby="hintDegree">
             <span>mean degree</span><strong id="statDegree">0</strong>
@@ -1180,8 +1207,8 @@ INDEX_HTML = """<!doctype html>
               <select name="overlay" id="overlay">
                 <option value="none">none</option>
                 <option value="degree">degree</option>
-                <option value="alive-count">alive-count</option>
-                <option value="alive-density">alive-density</option>
+                <option value="alive-count" data-overlay-mode="binary">alive-count</option>
+                <option value="alive-density" data-overlay-mode="binary">alive-density</option>
                 <option value="area">area</option>
                 <option value="edge-length">edge-length</option>
               </select>
@@ -1206,15 +1233,15 @@ INDEX_HTML = """<!doctype html>
 
         <fieldset>
           <legend>初期状態</legend>
-          <label>初期 alive 比率
+          <label data-visible-when="binary init:binary_density">初期 alive 比率
             <span class="range-row">
               <input name="initialAliveRatio" type="range" min="0" max="1" step="0.01" value="0.28" data-output="initialAliveRatioOut">
               <output id="initialAliveRatioOut">0.28</output>
             </span>
-            <span class="hint">binary 系の初期状態で、最初に生きているセルの割合です。</span>
+            <span class="hint">binary 系では最初に生きているセルの割合です。continuous の binary_density 初期化では、密度を入れるセルの割合として使います。</span>
           </label>
           <div class="grid">
-            <label>continuous 初期値
+            <label data-visible-when="continuous">continuous 初期値
               <select name="continuousInit">
                 <option value="random_density">random_density</option>
                 <option value="binary_density">binary_density</option>
@@ -1222,17 +1249,17 @@ INDEX_HTML = """<!doctype html>
               </select>
               <span class="hint">連続量ルールで、最初の密度をどう配るかを決めます。</span>
             </label>
-            <label>初期密度上限
+            <label data-visible-when="init:random_density init:gaussian_blob">初期密度上限
               <input name="initialDensityMax" type="number" min="0" max="10" step="0.01" value="1.0">
               <span class="hint">random_density と gaussian_blob の濃さの上限です。</span>
             </label>
-            <label>alive 密度
+            <label data-visible-when="init:binary_density">alive 密度
               <input name="aliveDensity" type="number" min="0" max="10" step="0.01" value="1.0">
               <span class="hint">binary_density で alive になったセルに入れる密度です。</span>
             </label>
-            <label>blob 幅
+            <label data-visible-when="init:gaussian_blob reaction:bell">sigma
               <input name="sigma" type="number" min="0.000001" max="2" step="0.01" value="0.08">
-              <span class="hint">gaussian_blob の広がりです。大きいほど中心の塊が広がります。</span>
+              <span class="hint">gaussian_blob では中心の塊の広がり、bell 反応では望ましい密度からの許容幅として使います。</span>
             </label>
           </div>
           <div class="toolbar">
@@ -1290,10 +1317,6 @@ INDEX_HTML = """<!doctype html>
               <input name="birthThreshold" type="number" min="0" max="1" step="0.01" value="0.25">
               <span class="hint">この密度を超えると、誕生確率が上がり始めます。</span>
             </label>
-            <label>optimal density
-              <input name="optimalDensity" type="number" min="0" max="5" step="0.01" value="0.35">
-              <span class="hint">alive セルにとって望ましい密度です。離れるほど死亡確率が上がります。</span>
-            </label>
             <label>birth strength
               <input name="birthStrength" type="number" min="0" max="20" step="0.1" value="2.5">
               <span class="hint">誕生確率の上がりやすさです。大きいほど増えやすくなります。</span>
@@ -1301,6 +1324,16 @@ INDEX_HTML = """<!doctype html>
             <label>death strength
               <input name="deathStrength" type="number" min="0" max="20" step="0.1" value="2.0">
               <span class="hint">死亡確率の上がりやすさです。大きいほど環境から外れたセルが消えやすくなります。</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset data-visible-when="probabilistic reaction:bell">
+          <legend>密度目標</legend>
+          <div class="grid">
+            <label>optimal density
+              <input name="optimalDensity" type="number" min="0" max="5" step="0.01" value="0.35">
+              <span class="hint">probabilistic では alive セルにとって望ましい隣接密度、continuous の bell 反応では増えやすい密度の中心として使います。</span>
             </label>
           </div>
         </fieldset>
@@ -1328,15 +1361,15 @@ INDEX_HTML = """<!doctype html>
               <input name="diffusionRate" type="number" min="0" max="10" step="0.001" value="0.01">
               <span class="hint">隣のセルへ密度がならされる速さです。大きいほど早く混ざります。</span>
             </label>
-            <label>growth rate
+            <label data-visible-when="reaction:logistic reaction:bell">growth rate
               <input name="growthRate" type="number" min="0" max="10" step="0.001" value="0.02">
               <span class="hint">logistic / bell 反応で量が増える速さです。</span>
             </label>
-            <label>death rate
+            <label data-visible-when="reaction:bell">death rate
               <input name="deathRate" type="number" min="0" max="10" step="0.001" value="0.01">
               <span class="hint">bell 反応で密度に応じて量が減る速さです。</span>
             </label>
-            <label>capacity
+            <label data-visible-when="reaction:logistic">capacity
               <input name="carryingCapacity" type="number" min="0.000001" max="10" step="0.01" value="1.0">
               <span class="hint">logistic 反応で、増加が止まりやすくなる密度の目安です。</span>
             </label>
@@ -1414,6 +1447,7 @@ INDEX_HTML = """<!doctype html>
       document.querySelector("#statStep").textContent = stats.step;
       document.querySelector("#statAlive").textContent = `${stats.aliveCount} (${formatPct(stats.aliveRatio)})`;
       document.querySelector("#statDensity").textContent = formatNumber(stats.meanDensity);
+      document.querySelector("#statMaxDensity").textContent = formatNumber(stats.maxDensity);
       document.querySelector("#statLife").textContent = formatNumber(stats.totalLife);
       document.querySelector("#statDegree").textContent = formatNumber(stats.meanDegree);
       statusElement.textContent = statusLabel(payload.stability);
@@ -1423,8 +1457,12 @@ INDEX_HTML = """<!doctype html>
       if (payload.stability?.stopped && playing) {
         setPlaying(false);
       }
-      if (payload.view && payload.view.overlay !== form.elements.overlay.value) {
-        form.elements.overlay.value = payload.view.overlay;
+      if (payload.view) {
+        const nextOverlay = overlayForCurrentRule(payload.view.overlay);
+        if (nextOverlay !== form.elements.overlay.value) {
+          form.elements.overlay.value = nextOverlay;
+        }
+        updateRuleGroups();
       }
     }
 
@@ -1461,18 +1499,54 @@ INDEX_HTML = """<!doctype html>
       });
       const continuous = rule === "continuous";
       for (const option of form.elements.overlay.options) {
-        option.disabled = continuous && (option.value === "alive-count" || option.value === "alive-density");
+        const binaryOnly = option.dataset.overlayMode === "binary";
+        option.hidden = continuous && binaryOnly;
+        option.disabled = continuous && binaryOnly;
       }
-      if (continuous && (form.elements.overlay.value === "alive-count" || form.elements.overlay.value === "alive-density")) {
+      if (continuous && isBinaryOverlay(form.elements.overlay.value)) {
         form.elements.overlay.value = "none";
       }
+      updateConditionalVisibility();
       updateFormula();
+    }
+
+    function overlayForCurrentRule(overlay) {
+      return form.elements.ruleType.value === "continuous" && isBinaryOverlay(overlay) ? "none" : overlay;
+    }
+
+    function isBinaryOverlay(overlay) {
+      return overlay === "alive-count" || overlay === "alive-density";
+    }
+
+    function updateConditionalVisibility() {
+      const rule = form.elements.ruleType.value;
+      const init = fieldValue("continuousInit");
+      const reaction = fieldValue("reaction");
+      document.querySelectorAll("[data-visible-when]").forEach(element => {
+        const tokens = element.dataset.visibleWhen.split(/\\s+/).filter(Boolean);
+        element.hidden = !tokens.some(token => visibilityTokenMatches(token, rule, init, reaction));
+      });
+    }
+
+    function visibilityTokenMatches(token, rule, init, reaction) {
+      if (token === "binary") return rule !== "continuous";
+      if (token === "absolute" || token === "density" || token === "probabilistic" || token === "continuous") {
+        return rule === token;
+      }
+      if (token.startsWith("init:")) {
+        return rule === "continuous" && init === token.slice("init:".length);
+      }
+      if (token.startsWith("reaction:")) {
+        return rule === "continuous" && reaction === token.slice("reaction:".length);
+      }
+      return false;
     }
 
     function updateOutputs() {
       document.querySelectorAll("input[type='range'][data-output]").forEach(input => {
         document.getElementById(input.dataset.output).textContent = Number(input.value).toFixed(2);
       });
+      updateConditionalVisibility();
       updateFormula();
       updateHintVisibility();
     }
@@ -1613,6 +1687,7 @@ INDEX_HTML = """<!doctype html>
     form.elements.rhoMax.addEventListener("change", () => callApi("/api/view", formData()));
     form.elements.showHints.addEventListener("change", updateHintVisibility);
     form.addEventListener("input", updateOutputs);
+    form.addEventListener("change", updateOutputs);
 
     updateRuleGroups();
     updateOutputs();

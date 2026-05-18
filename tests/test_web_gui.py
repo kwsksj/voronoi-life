@@ -71,16 +71,44 @@ def test_gui_html_contains_formula_and_hint_controls() -> None:
 
 def test_gui_html_contains_status_hints() -> None:
     assert 'tabindex="0" aria-describedby="hintStep"' in INDEX_HTML
-    assert 'tabindex="0" aria-describedby="hintAlive"' in INDEX_HTML
-    assert 'tabindex="0" aria-describedby="hintDensity"' in INDEX_HTML
-    assert 'tabindex="0" aria-describedby="hintLife"' in INDEX_HTML
+    assert 'tabindex="0" aria-describedby="hintAlive" data-visible-when="binary"' in INDEX_HTML
+    assert 'tabindex="0" aria-describedby="hintDensity" data-visible-when="continuous"' in INDEX_HTML
+    assert 'tabindex="0" aria-describedby="hintMaxDensity" data-visible-when="continuous"' in INDEX_HTML
+    assert 'tabindex="0" aria-describedby="hintLife" data-visible-when="continuous"' in INDEX_HTML
     assert 'tabindex="0" aria-describedby="hintDegree"' in INDEX_HTML
     assert 'tabindex="0" aria-describedby="hintStatus"' in INDEX_HTML
     assert "現在までに進んだ世代数です" in INDEX_HTML
+    assert 'id="statMaxDensity"' in INDEX_HTML
     assert ".stat:hover .hint" in INDEX_HTML
     assert ".stat:focus .hint" in INDEX_HTML
     assert ".stat:focus-within .hint" in INDEX_HTML
     assert "color: #ffffff;" in INDEX_HTML
+
+
+def test_gui_html_contains_mode_visibility_controls() -> None:
+    assert 'data-visible-when="binary init:binary_density"' in INDEX_HTML
+    assert 'data-visible-when="init:random_density init:gaussian_blob"' in INDEX_HTML
+    assert 'data-visible-when="init:gaussian_blob reaction:bell"' in INDEX_HTML
+    assert 'data-visible-when="reaction:logistic reaction:bell"' in INDEX_HTML
+    assert 'data-visible-when="reaction:bell"' in INDEX_HTML
+    assert "function updateConditionalVisibility()" in INDEX_HTML
+    assert "function visibilityTokenMatches(token, rule, init, reaction)" in INDEX_HTML
+
+
+def test_gui_html_hides_binary_overlays_for_continuous_mode() -> None:
+    assert '<option value="alive-count" data-overlay-mode="binary">alive-count</option>' in INDEX_HTML
+    assert '<option value="alive-density" data-overlay-mode="binary">alive-density</option>' in INDEX_HTML
+    assert 'option.hidden = continuous && binaryOnly' in INDEX_HTML
+    assert 'option.disabled = continuous && binaryOnly' in INDEX_HTML
+    assert 'form.elements.overlay.value = "none"' in INDEX_HTML
+    assert "function overlayForCurrentRule(overlay)" in INDEX_HTML
+    assert "function isBinaryOverlay(overlay)" in INDEX_HTML
+
+
+def test_gui_html_shares_optimal_density_between_probabilistic_and_continuous_bell() -> None:
+    assert 'data-visible-when="probabilistic reaction:bell"' in INDEX_HTML
+    assert 'name="optimalDensity"' in INDEX_HTML
+    assert "probabilistic では alive セルにとって望ましい隣接密度" in INDEX_HTML
 
 
 def test_gui_html_places_playback_controls_in_topbar() -> None:
