@@ -3,9 +3,10 @@
 ## 0) 位置づけとタスク管理
 
 - このリポジトリは遊び・実験用プロジェクトとして扱う。
-- 実行状態の正本は GitHub Issues / PR とする。
+- 実行状態の正本は GitHub Issues / PR / GitHub Projects とする。
+- GitHub Project は `Kawasakiseiji Life & Play`（https://github.com/users/kwsksj/projects/2）を使う。
 - Linear は使わない。過去の外部タスクが見つかった場合も、必要なら GitHub Issue に要約してから進める。
-- 小さな実験、文言修正、docs、テスト補助は GitHub Issue なしで進めてよい。継続作業、判断待ち、後で再開したい作業は GitHub Issue に残す。
+- 小さな実験、文言修正、docs、テスト補助は GitHub Issue なしで進めてよい。継続作業、判断待ち、後で再開したい作業、開発メモとして後で見返したい内容は GitHub Issue に残す。
 
 ## 1) 伝え方
 
