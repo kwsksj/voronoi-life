@@ -1,4 +1,4 @@
-# AGENTS.md
+# AGENTS.md - voronoi-life リポジトリ用
 
 ## 0) 位置づけとタスク管理
 
